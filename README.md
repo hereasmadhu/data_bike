@@ -11,7 +11,7 @@ This Streamlit application allows you to visualize, compare, and analyze surface
 ├── requirements.txt                            # Required Python packages
 ├── best_Yolo8.pt                               # Trained Yolo model
 ├── Jordan_Holm/
-│   ├── Jordan_front_HERO13 Black-GPS9.csv      # GPS trace for Joran to Holm section
+│   ├── Jordan_front_HERO13 Black-GPS9.csv      # GPS trace for Jordan to Holm section
 │   ├── Jordan_Holm_predictions.csv             # Detection results
 │   └── Jordan_Holm_event_frames/               # Directory containing extracted images
 ```
@@ -20,39 +20,57 @@ This Streamlit application allows you to visualize, compare, and analyze surface
 
 ## 🚀 Getting Started
 
-Access the live dashboard at: https://databike-dashboard-demo.streamlit.app/
+Access the live dashboard at: [https://databike-dashboard-demo.streamlit.app/](https://databike-dashboard-demo.streamlit.app/)
 
 This interactive Streamlit dashboard allows users to visualize, compare, and analyze surface defects along trails before and after maintenance, using object detection results and GPS traces.
+
+---
+
+## 📥 Cloning the Repository
+
+You can clone the repository:
+
+```bash
+git clone https://github.com/hereasmadhu/data_bike.git
+cd databike
+```
+
+You may then upload CSV files from the cloned folder directly through the Streamlit app interface.
 
 ---
 
 ## 📘 How to Use the Dashboard
 
 ### ⬅️ Step 1: Upload Required Files
+
 Use the **left sidebar** to upload the following four CSV files:
 
-- **Route CSV (Before)** – GPS trace before maintenance
-- **Issues CSV (Before)** – Detection results before maintenance
-- **Route CSV (After)** – GPS trace after maintenance
-- **Issues CSV (After)** – Detection results after maintenance
+* **Route CSV (Before)** – GPS trace before maintenance
+* **Issues CSV (Before)** – Detection results before maintenance
+* **Route CSV (After)** – GPS trace after maintenance
+* **Issues CSV (After)** – Detection results after maintenance
 
-***For now please use same sets of GPS trace, and predictions fr both before and after case.***
+***For now, please use the same sets of GPS trace and predictions for both before and after cases.***
 
 Make sure your CSVs contain the necessary columns:
-- For route files: columns like `latitude`, `longitude`, and `timestamp`
-- For issues files: `frame_filename`, `class_id`, `confidence`, `latitude`, `longitude`, and either `bbox` or individual box columns `x1`, `y1`, `x2`, `y2`
+
+* For route files: columns like `latitude`, `longitude`, and `timestamp`
+* For issues files: `frame_filename`, `class_id`, `confidence`, `latitude`, `longitude`, and either `bbox` or individual box columns `x1`, `y1`, `x2`, `y2`
 
 ---
 
 ### 🗂️ Step 2: Configure Column Names
-After uploading, select the correct **latitude**, **longitude** and **confidence** column names for both before and after route files. The dashboard will try to guess common names like `lat`, `lon`, `latitude`, `longitude`, and `confidence`.
+
+After uploading, select the correct **latitude**, **longitude**, and **confidence** column names for both before and after route files. The dashboard will try to guess common names like `lat`, `lon`, `latitude`, `longitude`, and `confidence`.
 
 ---
 
 ### 🖼️ Step 3: Specify Image Directory Path
+
 Provide the relative path to the directory that contains the images referenced in the `frame_filename` column.
 
 For example, if your image folder is named `Jordan_Holm_event_frames` and it is part of your uploaded or deployed repository, you should type:
+
 ```
 Jordan_Holm/Jordan_Holm_event_frames
 ```
@@ -62,20 +80,22 @@ Avoid using Windows-style paths like `D:\...` or local paths like `./...`.
 ---
 
 ### 🚀 Step 4: Run the Analysis
+
 Click the **"Run Comparison"** button in the sidebar to launch the dashboard view.
 
 ---
 
 ## 🗺️ Dashboard Features
 
-- **Comparison View**: Side-by-side maps comparing defect occurrences before and after maintenance.
-- **Image Gallery**: Scrollable view of annotated images.
-- **Detailed View**: Click a marker or image to inspect detections, metadata, and location.
+* **Comparison View**: Side-by-side maps comparing defect occurrences before and after maintenance.
+* **Image Gallery**: Scrollable view of annotated images.
+* **Detailed View**: Click a marker or image to inspect detections, metadata, and location.
 
 ---
 
-For questions or feedback, please contact the us at:
-Madhu.M.Thapa@utah.edu
-sanjay.luitel@utah.edu
-abbas.rashidi@utah.edu
-nikola.markovic@utah.edu
+For questions or feedback, please contact us at:
+
+* [Madhu.M.Thapa@utah.edu](mailto:Madhu.M.Thapa@utah.edu)
+* [sanjay.luitel@utah.edu](mailto:sanjay.luitel@utah.edu)
+* [abbas.rashidi@utah.edu](mailto:abbas.rashidi@utah.edu)
+* [nikola.markovic@utah.edu](mailto:nikola.markovic@utah.edu)
