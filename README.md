@@ -54,7 +54,7 @@ Provide the relative path to the directory that contains the images referenced i
 
 For example, if your image folder is named `Jordan_Holm_event_frames` and it is part of your uploaded or deployed repository, you should type:
 ```
-\Jordan_Holm\Jordan_Holm_event_frames
+Jordan_Holm/Jordan_Holm_event_frames
 ```
 
 Avoid using Windows-style paths like `D:\...` or local paths like `./...`.
