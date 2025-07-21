@@ -29,21 +29,37 @@ IMAGES_PER_PAGE = 9
 
 # --- Data Loading ---
 @st.cache_data
-def load_data(route_file_content, issues_file_content):
+def load_data(route_file_content, issues_file_content, confidence_col_name="confidence"):
+    """
+    Loads route and issues data from uploaded file content.
+    Renames the user-specified confidence column to 'confidence'.
+    """
     if route_file_content is None or issues_file_content is None:
         return pd.DataFrame(), pd.DataFrame()
     try:
-        # Pass content directly to read_csv, handle potential parsing issues
+        # Pass content directly, use python engine for robustness
         df_route = pd.read_csv(route_file_content, engine='python', sep=',', header=0, on_bad_lines='skip')
-        df_issues = pd.read_csv(issues_file_content)
+        df_issues = pd.read_csv(issues_file_content, engine='python', sep=',', header=0, on_bad_lines='skip')
+        
+        # Strip whitespace from all column headers
         df_route.columns = df_route.columns.str.strip()
         df_issues.columns = df_issues.columns.str.strip()
 
+        # --- FIX: Check for and rename the specified confidence column ---
+        if confidence_col_name in df_issues.columns:
+            df_issues.rename(columns={confidence_col_name: 'confidence'}, inplace=True)
+        else:
+            st.error(f"Fatal: The specified confidence column '{confidence_col_name}' was not found in an issues CSV file.")
+            st.info(f"Available columns are: {df_issues.columns.tolist()}")
+            return pd.DataFrame(), pd.DataFrame()
+
+        # Continue with existing class_id mapping
         if "class_id" in df_issues.columns:
             df_issues["label"] = df_issues["class_id"].astype(int).map(lambda i: LABEL_NAMES[i] if i < len(LABEL_NAMES) else "unknown")
         else:
-            st.error("Fatal: Column 'class_id' not found in one of the uploaded issues CSV files.")
+            st.error("Fatal: Column 'class_id' not found in an issues CSV file.")
             return pd.DataFrame(), pd.DataFrame()
+            
         return df_route, df_issues
     except Exception as e:
         st.error(f"Error loading data: {e}")
@@ -353,46 +369,76 @@ def run_configuration_view():
     route_file_after = st.sidebar.file_uploader("Upload Route CSV (After)", type="csv", key="upload_route_after")
     issues_file_after = st.sidebar.file_uploader("Upload Predictions CSV (After)", type="csv", key="upload_issues_after")
 
-    # Only proceed to configuration if all files are uploaded
     if not all([route_file_before, issues_file_before, route_file_after, issues_file_after]):
         st.warning("⬅️ Please upload all four CSV files in the sidebar to continue.")
         st.stop()
 
-    # Store file content in session state to persist it
     st.session_state.route_file_before = route_file_before
     st.session_state.issues_file_before = issues_file_before
     st.session_state.route_file_after = route_file_after
     st.session_state.issues_file_after = issues_file_after
 
-    # Step 2: Column & Path Configuration
     st.sidebar.markdown("---")
     st.sidebar.header("3. Column & Path Configuration")
 
-    df_route_before_sample = pd.read_csv(route_file_before)
-    df_route_after_sample = pd.read_csv(route_file_after)
-    route_file_before.seek(0)
-    route_file_after.seek(0)
+    try:
+        # Read samples to get column names
+        df_route_before_sample = pd.read_csv(route_file_before, engine='python', on_bad_lines='skip')
+        df_issues_before_sample = pd.read_csv(issues_file_before, engine='python', on_bad_lines='skip')
+        df_route_after_sample = pd.read_csv(route_file_after, engine='python', on_bad_lines='skip')
+        df_issues_after_sample = pd.read_csv(issues_file_after, engine='python', on_bad_lines='skip')
 
-    options_before, options_after = df_route_before_sample.columns.tolist(), df_route_after_sample.columns.tolist()
-    lat_index_before, lon_index_before = find_best_match_index(options_before, ['lat']), find_best_match_index(options_before, ['lon', 'long'])
-    lat_index_after, lon_index_after = find_best_match_index(options_after, ['lat']), find_best_match_index(options_after, ['lon', 'long'])
+        # Reset file pointers
+        for f in [route_file_before, issues_file_before, route_file_after, issues_file_after]:
+            f.seek(0)
+        
+        # --- BEFORE ---
+        st.sidebar.subheader("'Before' Settings")
+        route_opts_before = [c.strip() for c in df_route_before_sample.columns]
+        issues_opts_before = [c.strip() for c in df_issues_before_sample.columns]
+        
+        lat_col_before = st.sidebar.selectbox("Latitude Column (Before)", route_opts_before, index=find_best_match_index(route_opts_before, ['lat']))
+        lon_col_before = st.sidebar.selectbox("Longitude Column (Before)", route_opts_before, index=find_best_match_index(route_opts_before, ['lon', 'long']))
+        conf_col_before = st.sidebar.selectbox("Confidence Column (Before)", issues_opts_before, index=find_best_match_index(issues_opts_before, ['conf', 'score']))
+        img_dir_before = st.sidebar.text_input("Image Directory Path (Before)", "D:\\DataBikeProject\\Demo\\Jordan_Holm\\Jordan_Holm_event_frames")
 
-    lat_col_before = st.sidebar.selectbox("Select Latitude Column (Before)", options_before, index=lat_index_before)
-    lon_col_before = st.sidebar.selectbox("Select Longitude Column (Before)", options_before, index=lon_index_before)
-    img_dir_before = st.sidebar.text_input("Enter Image Directory Path (Before)", "D:\\DataBikeProject\\Demo\\Jordan_Holm\\Jordan_Holm_event_frames")
-    lat_col_after = st.sidebar.selectbox("Select Latitude Column (After)", options_after, index=lat_index_after)
-    lon_col_after = st.sidebar.selectbox("Select Longitude Column (After)", options_after, index=lon_index_after)
-    img_dir_after = st.sidebar.text_input("Enter Image Directory Path (After)", "D:\\DataBikeProject\\Demo\\Jordan_Holm\\Jordan_Holm_event_frames")
+        # --- AFTER ---
+        st.sidebar.subheader("'After' Settings")
+        route_opts_after = [c.strip() for c in df_route_after_sample.columns]
+        issues_opts_after = [c.strip() for c in df_issues_after_sample.columns]
 
-    st.sidebar.markdown("---")
-    if st.sidebar.button("Run Comparison", type="primary", use_container_width=True):
-        st.session_state.lat_col_before, st.session_state.lon_col_before = lat_col_before, lon_col_before
-        st.session_state.img_dir_before = img_dir_before
-        st.session_state.lat_col_after, st.session_state.lon_col_after = lat_col_after, lon_col_after
-        st.session_state.img_dir_after = img_dir_after
+        lat_col_after = st.sidebar.selectbox("Latitude Column (After)", route_opts_after, index=find_best_match_index(route_opts_after, ['lat']))
+        lon_col_after = st.sidebar.selectbox("Longitude Column (After)", route_opts_after, index=find_best_match_index(route_opts_after, ['lon', 'long']))
+        conf_col_after = st.sidebar.selectbox("Confidence Column (After)", issues_opts_after, index=find_best_match_index(issues_opts_after, ['conf', 'score']))
+        img_dir_after = st.sidebar.text_input("Image Directory Path (After)", "D:\\DataBikeProject\\Demo\\Jordan_Holm\\Jordan_Holm_event_frames")
 
-        st.session_state.run_app = True
-        st.rerun()
+        st.sidebar.markdown("---")
+        if st.sidebar.button("Run Comparison", type="primary", use_container_width=True):
+            # Store all column selections in session state
+            st.session_state.lat_col_before = lat_col_before
+            st.session_state.lon_col_before = lon_col_before
+            st.session_state.conf_col_before = conf_col_before
+            st.session_state.img_dir_before = img_dir_before
+            
+            st.session_state.lat_col_after = lat_col_after
+            st.session_state.lon_col_after = lon_col_after
+            st.session_state.conf_col_after = conf_col_after
+            st.session_state.img_dir_after = img_dir_after
+            
+            # --- THE FIX: Read file content into memory and store it ---
+            # This avoids all issues with file pointers and object state.
+            st.session_state.route_file_before_content = route_file_before.getvalue()
+            st.session_state.issues_file_before_content = issues_file_before.getvalue()
+            st.session_state.route_file_after_content = route_file_after.getvalue()
+            st.session_state.issues_file_after_content = issues_file_after.getvalue()
+
+            st.session_state.run_app = True
+            st.rerun()
+
+    except Exception as e:
+        st.error(f"Failed to read or process CSV files for configuration: {e}")
+        st.warning("Please ensure the uploaded files are valid CSVs.")
+        st.stop()
 
 def run_dashboard_view():
     """Displays the main dashboard with maps and galleries after configuration."""
@@ -405,8 +451,21 @@ def run_dashboard_view():
 
     st.sidebar.markdown("---")
 
-    df_route_before, df_issues_before = load_data(st.session_state.route_file_before, st.session_state.issues_file_before)
-    df_route_after, df_issues_after = load_data(st.session_state.route_file_after, st.session_state.issues_file_after)
+    # Pass the user-selected confidence column names to the data loader
+    df_route_before, df_issues_before = load_data(
+        st.session_state.route_file_before_content, 
+        st.session_state.issues_file_before_content,
+        st.session_state.conf_col_before
+    )
+    df_route_after, df_issues_after = load_data(
+        st.session_state.route_file_after_content, 
+        st.session_state.issues_file_after_content,
+        st.session_state.conf_col_after
+    )
+
+    if df_issues_before.empty or df_issues_after.empty:
+        st.error("Data loading failed. Please check the sidebar for error messages and start over.")
+        st.stop()
 
     df_disp_before, df_disp_after, issue_colors = build_filter_sidebar(df_issues_before, df_issues_after)
 
