@@ -439,6 +439,13 @@ def run_dashboard_view():
         with col1:
             st.header("Before Maintenance")
             st.markdown(f"**{len(df_disp_before)}** issues found with current filters.")
+            # --- ANALYTICS ---
+            with st.expander("📊 Analytics", expanded=True):
+                if not df_disp_before.empty:
+                    counts_df = df_disp_before['label'].value_counts().reset_index()
+                    st.bar_chart(counts_df, x='label', y='count')
+                else:
+                    st.write("No issues to analyze.")
             # FIX: Correctly call build_map with all arguments.
             folium_map = build_map(df_route_before, df_disp_before, issue_colors, cfg['lat_col_before'], cfg['lon_col_before'])
             map_data = st_folium(folium_map, width=None, height=500, key="before_map")
@@ -458,6 +465,13 @@ def run_dashboard_view():
         with col2:
             st.header("After Maintenance")
             st.markdown(f"**{len(df_disp_after)}** issues found with current filters.")
+            # --- ANALYTICS ---
+            with st.expander("📊 Analytics", expanded=True):
+                if not df_disp_after.empty:
+                    counts_df = df_disp_after['label'].value_counts().reset_index()
+                    st.bar_chart(counts_df, x='label', y='count')
+                else:
+                    st.write("No issues to analyze.")
             # FIX: Correctly call build_map with all arguments.
             folium_map = build_map(df_route_after, df_disp_after, issue_colors, cfg['lat_col_after'], cfg['lon_col_after'])
             map_data = st_folium(folium_map, width=None, height=500, key="after_map")
