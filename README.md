@@ -26,7 +26,7 @@ This interactive Streamlit dashboard allows users to visualize, compare, and ana
 
 ---
 
-## 📥 Cloning the Repository
+## 📥 Cloning the Repository (OPTIONAL)
 
 You can clone the repository:
 
