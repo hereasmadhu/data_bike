@@ -35,7 +35,7 @@ git clone https://github.com/hereasmadhu/data_bike.git
 cd databike
 ```
 
-You may then upload CSV files from the cloned folder directly through the Streamlit app interface, or you can directly download the Jordan_Front folder and upload the csv files on the app interface.
+You may then upload CSV files from the cloned folder directly through the Streamlit app interface, or **you can directly download the Jordan_Front folder and upload the csv files on the app interface.**
 
 ---
 
