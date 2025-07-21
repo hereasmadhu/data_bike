@@ -1,5 +1,5 @@
 # app_dashboard.py
-# ENHANCED VERSION: Corrected session state handling and other improvements
+# ENHANCED & FIXED VERSION: Corrected session state, function calls, and data passing.
 
 import os
 import streamlit as st
@@ -9,6 +9,7 @@ from folium.plugins import MarkerCluster
 from streamlit_folium import st_folium
 from PIL import Image, ImageDraw, ImageFont
 import math
+import io
 import json
 
 # --- Configuration ---
@@ -26,40 +27,35 @@ DEFAULT_COLORS = [
     "#008080"
 ]
 IMAGES_PER_PAGE = 9
+THUMBNAILS_PER_PAGE = 7
+
 
 # --- Data Loading ---
 @st.cache_data
 def load_data(route_file_content, issues_file_content, confidence_col_name="confidence"):
     """
-    Loads route and issues data from uploaded file content.
-    Renames the user-specified confidence column to 'confidence'.
+    Loads route and issues data from in-memory file content.
     """
-    if route_file_content is None or issues_file_content is None:
+    if not route_file_content or not issues_file_content:
         return pd.DataFrame(), pd.DataFrame()
+
     try:
-        # Pass content directly, use python engine for robustness
-        df_route = pd.read_csv(route_file_content, engine='python', sep=',', header=0, on_bad_lines='skip')
-        df_issues = pd.read_csv(issues_file_content, engine='python', sep=',', header=0, on_bad_lines='skip')
-        
-        # Strip whitespace from all column headers
+        # IMPROVED: Use io.BytesIO to read content from memory
+        df_route = pd.read_csv(io.BytesIO(route_file_content), engine='python', sep=',', header=0, on_bad_lines='skip')
+        df_issues = pd.read_csv(io.BytesIO(issues_file_content), engine='python', sep=',', header=0, on_bad_lines='skip')
+
         df_route.columns = df_route.columns.str.strip()
         df_issues.columns = df_issues.columns.str.strip()
 
-        # --- FIX: Check for and rename the specified confidence column ---
-        if confidence_col_name in df_issues.columns:
-            df_issues.rename(columns={confidence_col_name: 'confidence'}, inplace=True)
-        else:
-            st.error(f"Fatal: The specified confidence column '{confidence_col_name}' was not found in an issues CSV file.")
-            st.info(f"Available columns are: {df_issues.columns.tolist()}")
+        # IMPROVED: More robust column validation
+        required_issue_cols = {confidence_col_name, "class_id", "frame_filename", "latitude", "longitude"}
+        if not required_issue_cols.issubset(df_issues.columns):
+            st.error(f"Fatal: An issues CSV is missing one or more required columns. Needed: {required_issue_cols}. Found: {df_issues.columns.tolist()}")
             return pd.DataFrame(), pd.DataFrame()
 
-        # Continue with existing class_id mapping
-        if "class_id" in df_issues.columns:
-            df_issues["label"] = df_issues["class_id"].astype(int).map(lambda i: LABEL_NAMES[i] if i < len(LABEL_NAMES) else "unknown")
-        else:
-            st.error("Fatal: Column 'class_id' not found in an issues CSV file.")
-            return pd.DataFrame(), pd.DataFrame()
-            
+        df_issues.rename(columns={confidence_col_name: 'confidence'}, inplace=True)
+        df_issues["label"] = df_issues["class_id"].astype(int).map(lambda i: LABEL_NAMES[i] if 0 <= i < len(LABEL_NAMES) else "unknown")
+        
         return df_route, df_issues
     except Exception as e:
         st.error(f"Error loading data: {e}")
@@ -168,18 +164,17 @@ def find_best_match_index(columns, keywords):
 
 # --- UI Functions ---
 def build_filter_sidebar(df_issues_before, df_issues_after):
+    """Builds the sidebar for filtering data and returns filtered dataframes."""
     st.sidebar.header("Global Filters")
-
-    # This widget now solely controls st.session_state.show_bbox
-    st.sidebar.checkbox("Show Bounding Boxes", value=st.session_state.get("show_bbox", True), key="show_bbox")
+    st.sidebar.checkbox("Show Bounding Boxes", value=st.session_state.show_bbox, key="show_bbox")
 
     issue_colors = {}
     with st.sidebar.expander("Issue Colors", expanded=False):
         for i, lbl in enumerate(LABEL_NAMES):
             issue_colors[lbl] = st.color_picker(lbl, DEFAULT_COLORS[i], key=f"color_{lbl}")
+    st.session_state.issue_colors = issue_colors
 
-    all_labels = ["All"] + LABEL_NAMES
-    sel_label = st.sidebar.selectbox("Filter by Problem Type", all_labels, key="filter_label")
+    sel_label = st.sidebar.selectbox("Filter by Problem Type", ["All"] + LABEL_NAMES, key="filter_label")
     min_confidence = st.sidebar.slider("Minimum Confidence Score", 0.0, 1.0, 0.3, 0.05, key="filter_confidence")
 
     df_filtered_before = df_issues_before[df_issues_before["confidence"] >= min_confidence]
@@ -188,7 +183,7 @@ def build_filter_sidebar(df_issues_before, df_issues_after):
         df_filtered_before = df_filtered_before[df_filtered_before["label"] == sel_label]
         df_filtered_after = df_filtered_after[df_filtered_after["label"] == sel_label]
         
-    return df_filtered_before.copy(), df_filtered_after.copy(), issue_colors
+    return df_filtered_before.copy(), df_filtered_after.copy()
 
 def build_map(df_route, df_disp, issue_colors, lat_col, lon_col):
     if df_route.empty or lat_col not in df_route.columns or lon_col not in df_route.columns:
@@ -361,11 +356,11 @@ def run_configuration_view():
     st.sidebar.info("Upload data, select columns, specify paths, and then click 'Run Comparison'.")
 
     # Step 1: File Uploads
-    st.sidebar.header("1. 'Before Maintenance' Data")
+    st.sidebar.header("1. Before Maintenance Data")
     route_file_before = st.sidebar.file_uploader("Upload Route CSV (Before)", type="csv", key="upload_route_before")
     issues_file_before = st.sidebar.file_uploader("Upload Predictions CSV (Before)", type="csv", key="upload_issues_before")
 
-    st.sidebar.header("2. 'After Maintenance' Data")
+    st.sidebar.header("2. After Maintenance Data")
     route_file_after = st.sidebar.file_uploader("Upload Route CSV (After)", type="csv", key="upload_route_after")
     issues_file_after = st.sidebar.file_uploader("Upload Predictions CSV (After)", type="csv", key="upload_issues_after")
 
@@ -373,122 +368,124 @@ def run_configuration_view():
         st.warning("⬅️ Please upload all four CSV files in the sidebar to continue.")
         st.stop()
 
-    st.session_state.route_file_before = route_file_before
-    st.session_state.issues_file_before = issues_file_before
-    st.session_state.route_file_after = route_file_after
-    st.session_state.issues_file_after = issues_file_after
-
+    # IMPROVED: Read file content into memory immediately to avoid state issues
+    route_content_before = route_file_before.getvalue()
+    issues_content_before = issues_file_before.getvalue()
+    route_content_after = route_file_after.getvalue()
+    issues_content_after = issues_file_after.getvalue()
+    
     st.sidebar.markdown("---")
     st.sidebar.header("3. Column & Path Configuration")
 
     try:
-        # Read samples to get column names
-        df_route_before_sample = pd.read_csv(route_file_before, engine='python', on_bad_lines='skip')
-        df_issues_before_sample = pd.read_csv(issues_file_before, engine='python', on_bad_lines='skip')
-        df_route_after_sample = pd.read_csv(route_file_after, engine='python', on_bad_lines='skip')
-        df_issues_after_sample = pd.read_csv(issues_file_after, engine='python', on_bad_lines='skip')
-
-        # Reset file pointers
-        for f in [route_file_before, issues_file_before, route_file_after, issues_file_after]:
-            f.seek(0)
+        # IMPROVED: Create temporary dataframes from in-memory content just for column selection
+        df_route_b_cols = pd.read_csv(io.BytesIO(route_content_before)).columns.str.strip()
+        df_issues_b_cols = pd.read_csv(io.BytesIO(issues_content_before)).columns.str.strip()
+        df_route_a_cols = pd.read_csv(io.BytesIO(route_content_after)).columns.str.strip()
+        df_issues_a_cols = pd.read_csv(io.BytesIO(issues_content_after)).columns.str.strip()
         
-        # --- BEFORE ---
         st.sidebar.subheader("'Before' Settings")
-        route_opts_before = [c.strip() for c in df_route_before_sample.columns]
-        issues_opts_before = [c.strip() for c in df_issues_before_sample.columns]
-        
-        lat_col_before = st.sidebar.selectbox("Latitude Column (Before)", route_opts_before, index=find_best_match_index(route_opts_before, ['lat']))
-        lon_col_before = st.sidebar.selectbox("Longitude Column (Before)", route_opts_before, index=find_best_match_index(route_opts_before, ['lon', 'long']))
-        conf_col_before = st.sidebar.selectbox("Confidence Column (Before)", issues_opts_before, index=find_best_match_index(issues_opts_before, ['conf', 'score']))
-        img_dir_before = st.sidebar.text_input("Image Directory Path (Before)", "D:\\DataBikeProject\\Demo\\Jordan_Holm\\Jordan_Holm_event_frames")
+        lat_col_before = st.sidebar.selectbox("Latitude Column (Before)", df_route_b_cols, index=find_best_match_index(df_route_b_cols, ['lat']))
+        lon_col_before = st.sidebar.selectbox("Longitude Column (Before)", df_route_b_cols, index=find_best_match_index(df_route_b_cols, ['lon', 'long']))
+        conf_col_before = st.sidebar.selectbox("Confidence Column (Before)", df_issues_b_cols, index=find_best_match_index(df_issues_b_cols, ['conf', 'score']))
+        img_dir_before = st.sidebar.text_input("Image Directory Path (Before)", placeholder="e.g., C:/Users/YourName/Photos/Before")
 
-        # --- AFTER ---
         st.sidebar.subheader("'After' Settings")
-        route_opts_after = [c.strip() for c in df_route_after_sample.columns]
-        issues_opts_after = [c.strip() for c in df_issues_after_sample.columns]
+        lat_col_after = st.sidebar.selectbox("Latitude Column (After)", df_route_a_cols, index=find_best_match_index(df_route_a_cols, ['lat']))
+        lon_col_after = st.sidebar.selectbox("Longitude Column (After)", df_route_a_cols, index=find_best_match_index(df_route_a_cols, ['lon', 'long']))
+        conf_col_after = st.sidebar.selectbox("Confidence Column (After)", df_issues_a_cols, index=find_best_match_index(df_issues_a_cols, ['conf', 'score']))
+        img_dir_after = st.sidebar.text_input("Image Directory Path (After)", placeholder="e.g., C:/Users/YourName/Photos/After")
 
-        lat_col_after = st.sidebar.selectbox("Latitude Column (After)", route_opts_after, index=find_best_match_index(route_opts_after, ['lat']))
-        lon_col_after = st.sidebar.selectbox("Longitude Column (After)", route_opts_after, index=find_best_match_index(route_opts_after, ['lon', 'long']))
-        conf_col_after = st.sidebar.selectbox("Confidence Column (After)", issues_opts_after, index=find_best_match_index(issues_opts_after, ['conf', 'score']))
-        img_dir_after = st.sidebar.text_input("Image Directory Path (After)", "D:\\DataBikeProject\\Demo\\Jordan_Holm\\Jordan_Holm_event_frames")
-
-        st.sidebar.markdown("---")
-        if st.sidebar.button("Run Comparison", type="primary", use_container_width=True):
-            # Store all column selections in session state
-            st.session_state.lat_col_before = lat_col_before
-            st.session_state.lon_col_before = lon_col_before
-            st.session_state.conf_col_before = conf_col_before
-            st.session_state.img_dir_before = img_dir_before
-            
-            st.session_state.lat_col_after = lat_col_after
-            st.session_state.lon_col_after = lon_col_after
-            st.session_state.conf_col_after = conf_col_after
-            st.session_state.img_dir_after = img_dir_after
-            
-            # --- THE FIX: Read file content into memory and store it ---
-            # This avoids all issues with file pointers and object state.
-            st.session_state.route_file_before_content = route_file_before.getvalue()
-            st.session_state.issues_file_before_content = issues_file_before.getvalue()
-            st.session_state.route_file_after_content = route_file_after.getvalue()
-            st.session_state.issues_file_after_content = issues_file_after.getvalue()
-
+        if st.sidebar.button("🚀 Run Comparison", type="primary", use_container_width=True):
+            st.session_state.config = {
+                "route_content_before": route_content_before, "issues_content_before": issues_content_before,
+                "lat_col_before": lat_col_before, "lon_col_before": lon_col_before,
+                "conf_col_before": conf_col_before, "img_dir_before": img_dir_before,
+                "route_content_after": route_content_after, "issues_content_after": issues_content_after,
+                "lat_col_after": lat_col_after, "lon_col_after": lon_col_after,
+                "conf_col_after": conf_col_after, "img_dir_after": img_dir_after,
+            }
             st.session_state.run_app = True
             st.rerun()
-
     except Exception as e:
-        st.error(f"Failed to read or process CSV files for configuration: {e}")
-        st.warning("Please ensure the uploaded files are valid CSVs.")
+        st.error(f"Failed to process CSV files for configuration: {e}")
         st.stop()
 
 def run_dashboard_view():
     """Displays the main dashboard with maps and galleries after configuration."""
     st.sidebar.title("Dashboard Controls")
-    if st.sidebar.button("Start Over with New Data"):
-        keys_to_clear = list(st.session_state.keys())
-        for key in keys_to_clear:
-            del st.session_state[key]
+    if st.sidebar.button("🔄 Start Over with New Data"):
+        # IMPROVED: Safely clear the entire session state
+        st.session_state.clear()
         st.rerun()
-
     st.sidebar.markdown("---")
-
-    # Pass the user-selected confidence column names to the data loader
-    df_route_before, df_issues_before = load_data(
-        st.session_state.route_file_before_content, 
-        st.session_state.issues_file_before_content,
-        st.session_state.conf_col_before
-    )
-    df_route_after, df_issues_after = load_data(
-        st.session_state.route_file_after_content, 
-        st.session_state.issues_file_after_content,
-        st.session_state.conf_col_after
-    )
+    
+    cfg = st.session_state.config
+    df_route_before, df_issues_before = load_data(cfg['route_content_before'], cfg['issues_content_before'], cfg['conf_col_before'])
+    df_route_after, df_issues_after = load_data(cfg['route_content_after'], cfg['issues_content_after'], cfg['conf_col_after'])
 
     if df_issues_before.empty or df_issues_after.empty:
-        st.error("Data loading failed. Please check the sidebar for error messages and start over.")
+        st.error("Data loading failed. Please check your CSV files and column selections, then 'Start Over'.")
         st.stop()
-
-    df_disp_before, df_disp_after, issue_colors = build_filter_sidebar(df_issues_before, df_issues_after)
+    
+    df_disp_before, df_disp_after = build_filter_sidebar(df_issues_before, df_issues_after)
+    
+    # FIX: Retrieve issue_colors from session_state to be used in this scope.
+    issue_colors = st.session_state.issue_colors
 
     tab1, tab2 = st.tabs(["🗺️ Dashboard Comparison", "🖼️ Image Gallery"])
     with tab1:
         col1, col2 = st.columns(2)
         with col1:
             st.header("Before Maintenance")
-            display_single_dashboard(df_route_before, df_disp_before, issue_colors, "before_map", st.session_state.lat_col_before, st.session_state.lon_col_before, st.session_state.img_dir_before)
+            st.markdown(f"**{len(df_disp_before)}** issues found with current filters.")
+            # FIX: Correctly call build_map with all arguments.
+            folium_map = build_map(df_route_before, df_disp_before, issue_colors, cfg['lat_col_before'], cfg['lon_col_before'])
+            map_data = st_folium(folium_map, width=None, height=500, key="before_map")
+            if map_data and map_data.get("last_object_clicked"):
+                lat, lng = map_data["last_object_clicked"]["lat"], map_data["last_object_clicked"]["lng"]
+                df_disp_before["_dist"] = ((df_disp_before["latitude"] - lat)**2 + (df_disp_before["longitude"] - lng)**2)
+                selected_issue = df_disp_before.loc[df_disp_before["_dist"].idxmin()]
+                st.session_state.image_to_show = os.path.join(cfg['img_dir_before'], selected_issue["frame_filename"])
+                
+                # FIX: Pass all required data to session_state for the fullscreen view.
+                st.session_state.active_fullscreen_df = df_disp_before.copy()
+                st.session_state.active_image_dir = cfg['img_dir_before']
+                st.session_state.active_route_df = df_route_before.copy()
+                st.session_state.active_lat_col = cfg['lat_col_before']
+                st.session_state.active_lon_col = cfg['lon_col_before']
+                st.rerun()
         with col2:
             st.header("After Maintenance")
-            display_single_dashboard(df_route_after, df_disp_after, issue_colors, "after_map", st.session_state.lat_col_after, st.session_state.lon_col_after, st.session_state.img_dir_after)
+            st.markdown(f"**{len(df_disp_after)}** issues found with current filters.")
+            # FIX: Correctly call build_map with all arguments.
+            folium_map = build_map(df_route_after, df_disp_after, issue_colors, cfg['lat_col_after'], cfg['lon_col_after'])
+            map_data = st_folium(folium_map, width=None, height=500, key="after_map")
+            if map_data and map_data.get("last_object_clicked"):
+                lat, lng = map_data["last_object_clicked"]["lat"], map_data["last_object_clicked"]["lng"]
+                df_disp_after["_dist"] = ((df_disp_after["latitude"] - lat)**2 + (df_disp_after["longitude"] - lng)**2)
+                selected_issue = df_disp_after.loc[df_disp_after["_dist"].idxmin()]
+                st.session_state.image_to_show = os.path.join(cfg['img_dir_after'], selected_issue["frame_filename"])
+                
+                # FIX: Pass all required data to session_state for the fullscreen view.
+                st.session_state.active_fullscreen_df = df_disp_after.copy()
+                st.session_state.active_image_dir = cfg['img_dir_after']
+                st.session_state.active_route_df = df_route_after.copy()
+                st.session_state.active_lat_col = cfg['lat_col_after']
+                st.session_state.active_lon_col = cfg['lon_col_after']
+                st.rerun()
     with tab2:
-        st.header("🖼️ Filtered Image Gallery")
         col1, col2 = st.columns(2)
         with col1:
-            st.subheader("Before Maintenance")
-            display_gallery_for_version(df_disp_before, st.session_state.img_dir_before, "before", df_route_before, st.session_state.lat_col_before, st.session_state.lon_col_before, issue_colors)
+            st.subheader("Before Maintenance Gallery")
+            # FIX: Correctly call display_gallery_for_version with all arguments.
+            display_gallery_for_version(df_disp_before, cfg['img_dir_before'], "before", df_route_before, cfg['lat_col_before'], cfg['lon_col_before'], issue_colors)
         with col2:
-            st.subheader("After Maintenance")
-            display_gallery_for_version(df_disp_after, st.session_state.img_dir_after, "after", df_route_after, st.session_state.lat_col_after, st.session_state.lon_col_after, issue_colors)
-
+            st.subheader("After Maintenance Gallery")
+            # FIX: Correctly call display_gallery_for_version with all arguments.
+            display_gallery_for_version(df_disp_after, cfg['img_dir_after'], "after", df_route_after, cfg['lat_col_after'], cfg['lon_col_after'], issue_colors)
     st.markdown("---")
+    # FIX: Use the 'issue_colors' variable that is now correctly defined in this scope.
     display_horizontal_legend(issue_colors)
 
 
@@ -519,14 +516,13 @@ def run_fullscreen_view():
     st.markdown("---")
     st.subheader("Browse Other Issues in this Dataset")
 
-    THUMBNAILS_PER_PAGE = 7
     df_filmstrip = st.session_state.active_fullscreen_df
     image_dir = st.session_state.active_image_dir
     total_items = len(df_filmstrip)
     total_pages = math.ceil(total_items / THUMBNAILS_PER_PAGE)
     
-    if st.session_state.filmstrip_page >= total_pages:
-        st.session_state.filmstrip_page = total_pages - 1
+    if 'filmstrip_page' not in st.session_state or st.session_state.filmstrip_page >= total_pages:
+        st.session_state.filmstrip_page = 0
 
     start_index = st.session_state.filmstrip_page * THUMBNAILS_PER_PAGE
     end_index = min(start_index + THUMBNAILS_PER_PAGE, total_items)
@@ -562,7 +558,7 @@ def main():
     if "show_bbox" not in st.session_state:
         st.session_state.show_bbox = True
     if "issue_colors" not in st.session_state:
-        st.session_state.issue_colors = {}
+        st.session_state.issue_colors = {lbl: DEFAULT_COLORS[i] for i, lbl in enumerate(LABEL_NAMES)}
 
     if st.session_state.get("image_to_show"):
         run_fullscreen_view()
