@@ -8,134 +8,147 @@ This Streamlit application enables visualization, comparison, and analysis of **
 
 ```
 ├── app_dashboard.py                            # Streamlit dashboard
-├── extract_app.py                              # Script to extract frames from videos using accelerometer and GPS
-├── predict_app.py                              # YOLO-based prediction script for extracted frames
+├── extract_app.py                              # Script to extract frames using accelerometer and GPS
+├── predict_app.py                              # YOLOv8 prediction script for extracted frames
 ├── requirements.txt                            # Required Python packages
 ├── best_Yolo8.pt                               # Trained YOLOv8 model
 ├── Jordan_Holm/
-│   ├── Jordan_front_HERO13 Black-GPS9.csv      # GPS trace for Jordan to Holm section
-│   ├── Jordan_Holm_predictions.csv             # Detection results
-│   └── Jordan_Holm_event_frames/               # Directory containing extracted images
+│   ├── Jordan_front_HERO13 Black-GPS9.csv      # GPS trace file (demo)
+│   ├── Jordan_front_HERO13 Black-ACCL.csv      # Accelerometer file (demo)
+│   ├── demo_video.mp4                          # Placeholder video file (optional)
+│   ├── Jordan_Holm_event_frames/               # Directory for extracted images
+│   └── Jordan_Holm_predictions.csv             # Detection results (CSV)
 ```
 
 ---
 
 ## 🚀 Getting Started
 
-A live demo of the dashboard is available at:  
+Try the live dashboard at:  
 🔗 [https://databike-dashboard-demo.streamlit.app/](https://databike-dashboard-demo.streamlit.app/)
 
-This interactive platform enables users to compare surface condition **before and after maintenance**, leveraging object detection and GPS trace alignment.
+Or follow the instructions below to run locally.
 
 ---
 
 ## 🧰 Step-by-Step Workflow
 
-### 📁 Step 0: Clone Repository and Install Dependencies
-
-Choose a directory on your local machine and clone the repository:
+### 📁 Step 0: Clone the Repository and Install Dependencies
 
 ```bash
 git clone https://github.com/hereasmadhu/data_bike.git
 cd data_bike
-```
-
-This repository contains **demo data and videos** for testing the full pipeline.
-
-Install the required packages:
-
-```bash
 pip install -r requirements.txt
 ```
 
+This repository includes demo files (GPS, accelerometer, optional video) for testing the full pipeline.
+
 ---
 
-### 🎞️ Step 1: Extract Frames from Video
+### 🎞️ Step 1: Extract Frames from Demo Video
 
-Use the `extract_app.py` script to extract event-based frames from a video file using accelerometer and GPS metadata:
+Use `extract_app.py` to extract frames based on vibration events:
 
 ```bash
-python extract_app.py --video path/to/video.mp4 --gps path/to/gps.csv --accel path/to/accel.csv --outdir output_folder
+python extract_app.py \
+  --video Jordan_Holm/demo_video.mp4 \
+  --gps Jordan_Holm/Jordan_front_HERO13\ Black-GPS9.csv \
+  --accel Jordan_Holm/Jordan_front_HERO13\ Black-ACCL.csv \
+  --outdir Jordan_Holm/Jordan_Holm_event_frames
 ```
 
-This will generate a directory of frames corresponding to significant trail events.
+This creates frame images at locations with notable vibration, based on accelerometer and GPS data.
+
+> ⚠️ If you don’t have the video file, you can skip this step and use pre-generated images in `Jordan_Holm_event_frames`.
 
 ---
 
 ### 🧠 Step 2: Run Object Detection on Extracted Frames
 
-Apply the YOLOv8 model (`best_Yolo8.pt`) to the extracted frames using `predict_app.py`:
+Apply the pretrained YOLOv8 model to detect surface defects:
 
 ```bash
-python predict_app.py --model best_Yolo8.pt --imgdir output_folder --gps path/to/gps.csv --out path/to/output_predictions.csv
+python predict_app.py \
+  --model best_Yolo8.pt \
+  --imgdir Jordan_Holm/Jordan_Holm_event_frames \
+  --gps Jordan_Holm/Jordan_front_HERO13\ Black-GPS9.csv \
+  --out Jordan_Holm/Jordan_Holm_predictions.csv
 ```
 
-This step will create a CSV file with bounding box coordinates, class predictions, and geolocations.
+This generates a CSV of defects with bounding boxes, classes, and GPS positions.
 
 ---
 
-### 📊 Step 3: Launch Dashboard
+### 📊 Step 3: Launch Streamlit Dashboard
 
-With the predicted CSV and GPS trace, launch the Streamlit dashboard:
+Run the Streamlit dashboard locally:
 
 ```bash
 streamlit run app_dashboard.py
 ```
 
-Or visit the hosted dashboard (if available).
+Then open the interface in your browser to interact with the dashboard.
 
 ---
 
 ## 📘 How to Use the Dashboard
 
-### ⬅️ Upload Required Files
+### ⬅️ Upload Files in Sidebar
 
-In the **left sidebar**, upload the following four files:
+Use the **left sidebar** to upload the following four CSV files:
 
-- **Route CSV (Before)** – GPS trace before maintenance  
-- **Issues CSV (Before)** – Detection results before maintenance  
-- **Route CSV (After)** – GPS trace after maintenance  
-- **Issues CSV (After)** – Detection results after maintenance  
+- **Route CSV (Before)** – e.g., `Jordan_Holm/Jordan_front_HERO13 Black-GPS9.csv`
+- **Issues CSV (Before)** – e.g., `Jordan_Holm/Jordan_Holm_predictions.csv`
+- **Route CSV (After)** – (use same file for demo)
+- **Issues CSV (After)** – (use same file for demo)
 
-> 📌 *Note: For demo purposes, you may use the same GPS and detection files for both before and after cases.*
-
----
-
-### ⚙️ Configure Column Names
-
-After upload, select appropriate column names (e.g., `latitude`, `longitude`, `confidence`) for both route and detection files.
+> 📌 For demo, you may upload the same GPS and prediction files for both "before" and "after" inputs.
 
 ---
 
-### 🖼️ Specify Image Directory Path
+### ⚙️ Select Column Names
 
-Enter the relative path to the directory containing the images listed in the `frame_filename` column. Example:
+After uploading, select the appropriate column names such as `latitude`, `longitude`, `confidence`.
+
+The app automatically detects common column names like `lat`, `lon`, etc.
+
+---
+
+### 🖼️ Specify Image Folder
+
+Provide the relative path to the folder with extracted frames, such as:
 
 ```
 Jordan_Holm/Jordan_Holm_event_frames
 ```
 
-Avoid using Windows-style paths like `D:\...` or local paths like `./...`.
+Do **not** use Windows-style paths (like `D:\...`) or relative symbols like `./`.
 
 ---
 
-### 🚀 Run Analysis
+### 🚀 Run the Comparison
 
-Click **“Run Comparison”** to load visualizations.
+Click the **"Run Comparison"** button to visualize:
+
+- Side-by-side trail maps
+- Annotated defect images
+- Location-aware defect details
 
 ---
 
 ## 🗺️ Dashboard Features
 
-- **Comparison View**: Side-by-side maps showing defect distribution before vs after maintenance  
-- **Image Gallery**: Scrollable and clickable annotated images  
-- **Detailed View**: Marker-level metadata and image inspection
+- **Comparison View**: Map view of defects (before vs. after)
+- **Image Gallery**: Clickable annotated image scroll
+- **Defect Details**: Inspect location, confidence, and class metadata
+
+All maps are rendered using `folium` and support interactive exploration.
 
 ---
 
 ## 📬 Contact
 
-For questions, suggestions, or feedback, please contact:
+For questions or collaboration, please contact:
 
 - [Madhu.M.Thapa@utah.edu](mailto:Madhu.M.Thapa@utah.edu)  
 - [sanjay.luitel@utah.edu](mailto:sanjay.luitel@utah.edu)  
