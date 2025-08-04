@@ -1,15 +1,17 @@
 # 🚴‍♂️ Trail Surface Defect Dashboard
 
-This Streamlit application allows you to visualize, compare, and analyze surface defects along trails **before and after maintenance**, using object detection results and GPS traces.
+This Streamlit application enables visualization, comparison, and analysis of **trail surface defects before and after maintenance** using object detection outputs and GPS traces.
+
+---
 
 ## 📂 Project Structure
 
 ```
 ├── app_dashboard.py                            # Streamlit dashboard
-├── extract_app.py                              # (Optional) Script to extract frames from videos using accelerometer and GPS
-├── predict_app.py                              # (Optional) YOLO-based prediction script
+├── extract_app.py                              # Script to extract frames from videos using accelerometer and GPS
+├── predict_app.py                              # YOLO-based prediction script for extracted frames
 ├── requirements.txt                            # Required Python packages
-├── best_Yolo8.pt                               # Trained Yolo model
+├── best_Yolo8.pt                               # Trained YOLOv8 model
 ├── Jordan_Holm/
 │   ├── Jordan_front_HERO13 Black-GPS9.csv      # GPS trace for Jordan to Holm section
 │   ├── Jordan_Holm_predictions.csv             # Detection results
@@ -20,56 +22,94 @@ This Streamlit application allows you to visualize, compare, and analyze surface
 
 ## 🚀 Getting Started
 
-Access the live dashboard at: [https://databike-dashboard-demo.streamlit.app/](https://databike-dashboard-demo.streamlit.app/)
+A live demo of the dashboard is available at:  
+🔗 [https://databike-dashboard-demo.streamlit.app/](https://databike-dashboard-demo.streamlit.app/)
 
-This interactive Streamlit dashboard allows users to visualize, compare, and analyze surface defects along trails before and after maintenance, using object detection results and GPS traces.
+This interactive platform enables users to compare surface condition **before and after maintenance**, leveraging object detection and GPS trace alignment.
 
 ---
 
-## 📥 Cloning the Repository (OPTIONAL)
+## 🧰 Step-by-Step Workflow
 
-You can clone the repository:
+### 📁 Step 0: Clone Repository and Install Dependencies
+
+Choose a directory on your local machine and clone the repository:
 
 ```bash
 git clone https://github.com/hereasmadhu/data_bike.git
-cd databike
+cd data_bike
 ```
 
-You may then upload CSV files from the cloned folder directly through the Streamlit app interface, or **you can directly download the Jordan_Front folder and upload the csv files on the app interface.**
+This repository contains **demo data and videos** for testing the full pipeline.
+
+Install the required packages:
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+### 🎞️ Step 1: Extract Frames from Video
+
+Use the `extract_app.py` script to extract event-based frames from a video file using accelerometer and GPS metadata:
+
+```bash
+python extract_app.py --video path/to/video.mp4 --gps path/to/gps.csv --accel path/to/accel.csv --outdir output_folder
+```
+
+This will generate a directory of frames corresponding to significant trail events.
+
+---
+
+### 🧠 Step 2: Run Object Detection on Extracted Frames
+
+Apply the YOLOv8 model (`best_Yolo8.pt`) to the extracted frames using `predict_app.py`:
+
+```bash
+python predict_app.py --model best_Yolo8.pt --imgdir output_folder --gps path/to/gps.csv --out path/to/output_predictions.csv
+```
+
+This step will create a CSV file with bounding box coordinates, class predictions, and geolocations.
+
+---
+
+### 📊 Step 3: Launch Dashboard
+
+With the predicted CSV and GPS trace, launch the Streamlit dashboard:
+
+```bash
+streamlit run app_dashboard.py
+```
+
+Or visit the hosted dashboard (if available).
 
 ---
 
 ## 📘 How to Use the Dashboard
 
-### ⬅️ Step 1: Upload Required Files
+### ⬅️ Upload Required Files
 
-Use the **left sidebar** to upload the following four CSV files:
+In the **left sidebar**, upload the following four files:
 
-* **Route CSV (Before)** – GPS trace before maintenance
-* **Issues CSV (Before)** – Detection results before maintenance
-* **Route CSV (After)** – GPS trace after maintenance
-* **Issues CSV (After)** – Detection results after maintenance
+- **Route CSV (Before)** – GPS trace before maintenance  
+- **Issues CSV (Before)** – Detection results before maintenance  
+- **Route CSV (After)** – GPS trace after maintenance  
+- **Issues CSV (After)** – Detection results after maintenance  
 
-***For now, please use the same sets of GPS trace and predictions for both before and after cases.***
-
-Make sure your CSVs contain the necessary columns:
-
-* For route files: columns like `latitude`, `longitude`, and `timestamp`
-* For issues files: `frame_filename`, `class_id`, `confidence`, `latitude`, `longitude`, and either `bbox` or individual box columns `x1`, `y1`, `x2`, `y2`
+> 📌 *Note: For demo purposes, you may use the same GPS and detection files for both before and after cases.*
 
 ---
 
-### 🗂️ Step 2: Configure Column Names
+### ⚙️ Configure Column Names
 
-After uploading, select the correct **latitude**, **longitude**, and **confidence** column names for both before and after route files. The dashboard will try to guess common names like `lat`, `lon`, `latitude`, `longitude`, and `confidence`.
+After upload, select appropriate column names (e.g., `latitude`, `longitude`, `confidence`) for both route and detection files.
 
 ---
 
-### 🖼️ Step 3: Specify Image Directory Path
+### 🖼️ Specify Image Directory Path
 
-Provide the relative path to the directory that contains the images referenced in the `frame_filename` column.
-
-For example, if your image folder is named `Jordan_Holm_event_frames` and it is part of your uploaded or deployed repository, you should type:
+Enter the relative path to the directory containing the images listed in the `frame_filename` column. Example:
 
 ```
 Jordan_Holm/Jordan_Holm_event_frames
@@ -79,23 +119,25 @@ Avoid using Windows-style paths like `D:\...` or local paths like `./...`.
 
 ---
 
-### 🚀 Step 4: Run the Analysis
+### 🚀 Run Analysis
 
-Click the **"Run Comparison"** button in the sidebar to launch the dashboard view.
+Click **“Run Comparison”** to load visualizations.
 
 ---
 
 ## 🗺️ Dashboard Features
 
-* **Comparison View**: Side-by-side maps comparing defect occurrences before and after maintenance.
-* **Image Gallery**: Scrollable view of annotated images.
-* **Detailed View**: Click a marker or image to inspect detections, metadata, and location.
+- **Comparison View**: Side-by-side maps showing defect distribution before vs after maintenance  
+- **Image Gallery**: Scrollable and clickable annotated images  
+- **Detailed View**: Marker-level metadata and image inspection
 
 ---
 
-For questions or feedback, please contact us at:
+## 📬 Contact
 
-* [Madhu.M.Thapa@utah.edu](mailto:Madhu.M.Thapa@utah.edu)
-* [sanjay.luitel@utah.edu](mailto:sanjay.luitel@utah.edu)
-* [abbas.rashidi@utah.edu](mailto:abbas.rashidi@utah.edu)
-* [nikola.markovic@utah.edu](mailto:nikola.markovic@utah.edu)
+For questions, suggestions, or feedback, please contact:
+
+- [Madhu.M.Thapa@utah.edu](mailto:Madhu.M.Thapa@utah.edu)  
+- [sanjay.luitel@utah.edu](mailto:sanjay.luitel@utah.edu)  
+- [abbas.rashidi@utah.edu](mailto:abbas.rashidi@utah.edu)  
+- [nikola.markovic@utah.edu](mailto:nikola.markovic@utah.edu)
