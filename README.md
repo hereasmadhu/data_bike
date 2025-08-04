@@ -50,12 +50,13 @@ This repository includes demo files (GPS, accelerometer, optional video) for tes
 Use `extract_app.py` to extract frames based on vibration events:
 
 ```bash
-python extract_app.py \
-  --video Jordan_Holm/demo_video.mp4 \
-  --gps Jordan_Holm/Jordan_front_HERO13\ Black-GPS9.csv \
-  --accel Jordan_Holm/Jordan_front_HERO13\ Black-ACCL.csv \
+python extract_app.py ^
+  --video Jordan_Holm/demo_video.mp4 ^
+  --gps Jordan_Holm/Jordan_front_HERO13 Black-GPS9.csv ^
+  --accel Jordan_Holm/Jordan_front_HERO13 Black-ACCL.csv ^
   --outdir Jordan_Holm/Jordan_Holm_event_frames
 ```
+> 📌 For powershell, you should use ` instead of ^, and enclose path with " " like "Jordan_Holm/Jordan_front_HERO13 Black-GPS9.csv".
 
 This creates frame images at locations with notable vibration, based on accelerometer and GPS data.
 
@@ -68,10 +69,10 @@ This creates frame images at locations with notable vibration, based on accelero
 Apply the pretrained YOLOv8 model to detect surface defects:
 
 ```bash
-python predict_app.py \
-  --model best_Yolo8.pt \
-  --imgdir Jordan_Holm/Jordan_Holm_event_frames \
-  --gps Jordan_Holm/Jordan_front_HERO13\ Black-GPS9.csv \
+python predict_app.py ^
+  --model best_Yolo8.pt ^
+  --imgdir Jordan_Holm/Jordan_Holm_event_frames ^
+  --gps Jordan_Holm/Jordan_front_HERO13 Black-GPS9.csv ^
   --out Jordan_Holm/Jordan_Holm_predictions.csv
 ```
 
