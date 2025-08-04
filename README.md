@@ -51,12 +51,13 @@ Use `extract_app.py` to extract frames based on vibration events:
 
 ```bash
 python extract_app.py ^
-  --video Jordan_Holm/demo_video.mp4 ^
-  --gps Jordan_Holm/Jordan_front_HERO13 Black-GPS9.csv ^
-  --accel Jordan_Holm/Jordan_front_HERO13 Black-ACCL.csv ^
-  --outdir Jordan_Holm/Jordan_Holm_event_frames
+  --video_file "D:\DataBikeProject\Videos Collected\Jordan_Holm\Jordan_front.MP4" ^
+  --gps_csv "Jordan_Holm/Jordan_front_HERO13 Black-GPS9.csv" ^
+  --accl_csv "Jordan_Holm/Jordan_front_HERO13 Black-ACCL.csv" ^
+  --output_dir "Jordan_Holm/Jordan_Holm_event_frames" ^
+  --trail_name "Jordan_Holm"
 ```
-> 📌 For powershell, you should use ` instead of ^, and enclose path with " " like "Jordan_Holm/Jordan_front_HERO13 Black-GPS9.csv".
+> 📌 For powershell, you should use ` instead of ^.
 
 This creates frame images at locations with notable vibration, based on accelerometer and GPS data.
 
@@ -70,10 +71,10 @@ Apply the pretrained YOLOv8 model to detect surface defects:
 
 ```bash
 python predict_app.py ^
-  --model best_Yolo8.pt ^
-  --imgdir Jordan_Holm/Jordan_Holm_event_frames ^
-  --gps Jordan_Holm/Jordan_front_HERO13 Black-GPS9.csv ^
-  --out Jordan_Holm/Jordan_Holm_predictions.csv
+  --frames_dir "Jordan_Holm/Jordan_Holm_event_frames" ^
+  --events_csv "Jordan_Holm/Jordan_Holm_frames_accl_events_with_gps.csv" ^
+  --model_path "./best_Yolov8.pt" ^
+  --output_csv "Jordan_Holm/Jordan_Holm_predictions.csv"
 ```
 
 This generates a CSV of defects with bounding boxes, classes, and GPS positions.
