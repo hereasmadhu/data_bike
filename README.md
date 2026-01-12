@@ -57,7 +57,7 @@ python extract_app.py ^
   --output_dir "Jordan_Holm/Jordan_Holm_event_frames" ^
   --trail_name "Jordan_Holm"
 ```
-> 📌 For powershell, you should use ` instead of ^.
+> 📌 For powershell, you should use ` instead of ^., The video file location here provided is local one, so it is just for demo, for now extraction process is already completed, and results are in Jordan_Holm folder.
 
 This creates frame images at locations with notable vibration, based on accelerometer and GPS data.
 
