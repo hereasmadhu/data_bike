@@ -24,6 +24,8 @@ This Streamlit application enables visualization, comparison, and analysis of **
 
 ## 🚀 Getting Started
 
+Find the visual demonstration of using this pipeline here: https://youtu.be/A8lZ2UlACw4
+
 Try the live dashboard at:  
 🔗 [https://databike-dashboard-demo.streamlit.app/](https://databike-dashboard-demo.streamlit.app/)
 
